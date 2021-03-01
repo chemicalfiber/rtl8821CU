@@ -1,117 +1,41 @@
-# Realtek RTL8811CU/RTL8821CU USB wifi adapter driver version 5.4.1 for Linux 4.4.x up to 5.x
+# Realtek RTL8811CU / RTL8821CU USB无线网卡的Linux驱动程序
 
-Before build this driver make sure `make`, `gcc`, `linux-header`/`kernel-devel`, `bc` and `git` have been installed.
+## 使用说明
+这是一篇给小白看的使用说明，具体的编译构建指南请查阅<a href="https://github.com/chemicalfiber/rtl8821CU/tree/master/README-Original-en.md">README-Original-en.md<a/>
 
-## First, clone this repository
-```
-mkdir -p ~/build
-cd ~/build
-git clone https://github.com/brektrou/rtl8821CU.git
-```
-## Check the name of the interface
+### 一、确认你的主机环境是Linux（废话）
+这里以Ubuntu 20.04LTS作为演示
 
-Check the interface name of your wifi adapter using `ifconfig`. Usually, it will be wlan0 by default, but it may vary depends on the kernel and your device. On Ubuntu, for example, it may be named as wlx + MAC address. (https://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames/) 
+### 二、安装前置条件和编译环境：
+安装`git`、`gcc`、`make`、`bc`、`linux-header或者kernel-devel`。
+如果你的系统的包管理系统没有抽风的话`linux-header或者kernel-devel`应该会在安装前面4项的时候自动帮你安装好了。
+```shell script
+sudo apt install gcc g++ build-essential git dkms
+```
+### 三、下载驱动源码：
+常规做法：
+```shell script
+git clone https://github.com/chemicalfiber/rtl8821CU.git
+```
+如果你在中国大陆地区或网络环境不佳：
+```shell script
+git clone https://ghproxy.com/https://github.com/chemicalfiber/rtl8821CU.git
+```
+或者：
+<a href="https://ghproxy.com/https://github.com/chemicalfiber/rtl8821CU/archive/master.zip" target="_blank">点我直接下载源码zip</a>
 
-If this is the case, you can either disable the feature following the link above, or replace the name used in the driver by
-
-```
-grep -lr . | xargs sed -i '' -e '/ifcfg-wlan0/!s/wlan0/<name of the device>/g'
-```
-
-## Build and install with DKMS
-
-DKMS is a system which will automatically recompile and install a kernel module when a new kernel gets installed or updated. To make use of DKMS, install the dkms package.
-
-### Debian/Ubuntu:
-```
-sudo apt-get install dkms
-```
-### Arch Linux/Manjaro:
-```
-sudo pacman -S dkms
-```
-To make use of the **DKMS** feature with this project, just run:
-```
-./dkms-install.sh
-```
-If you later on want to remove it, run:
-```
-./dkms-remove.sh
+你需要手动解压下载后的zip包。
+### 四、编译安装：
+在终端中逐条输入下列命令：
+```shell script
+cd rtl8821CU
+chmod +x dkms-install.sh
+sudo ./dkms-install.sh
+sudo modprobe 8821cu
+reboot
 ```
 
-### Plug your USB-wifi-adapter into your PC
-If wifi can be detected, congratulations.
-If not, maybe you need to switch your device usb mode by the following steps in terminal:
-1. find your usb-wifi-adapter device ID, like "0bda:1a2b", by type:
-```
-lsusb
-```
-2. switch the mode by type: (the device ID must be yours.)
+### 五、检查验证
+如果你也是使用Ubuntu 20.04LTS，你可以在右上角的快捷设置菜单中看到多出来一项`USB 无线网络 未连接`，这项便是成功驱动之后的USB网卡，使用它连接到你的无线网络吧。
 
-Need install `usb_modeswitch` (Archlinux: `sudo pacman -S usb_modeswitch`)
-```
-sudo usb_modeswitch -KW -v 0bda -p 1a2b
-systemctl start bluetooth.service - starting Bluetooth service if it's in inactive state
-```
-
-It should work.
-
-### Make it permanent
-
-If steps above worked fine and in order to avoid periodically having to make `usb_modeswitch` you can make it permanent (Working in **Ubuntu 18.04 LTS**):
-
-1. Edit `usb_modeswitch` rules:
-
-   ```bash
-   sudo nano /lib/udev/rules.d/40-usb_modeswitch.rules
-   ```
-
-2. Append before the end line `LABEL="modeswitch_rules_end"` the following:
-
-   ```
-   # Realtek 8211CU Wifi AC USB
-   ATTR{idVendor}=="0bda", ATTR{idProduct}=="1a2b", RUN+="/usr/sbin/usb_modeswitch -K -v 0bda -p 1a2b"
-   ```   
-
-## Build and install without DKMS
-Use following commands:
-```
-cd ~/build/rtl8821CU
-make
-sudo make install
-```
-If you later on want to remove it, do the following:
-```
-cd ~/build/rtl8821CU
-sudo make uninstall
-```
-## Checking installed driver
-If you successfully install the driver, the driver is installed on `/lib/modules/<linux version>/kernel/drivers/net/wireless/realtek/rtl8821cu`. Check the driver with the `ls` command:
-```
-ls /lib/modules/$(uname -r)/kernel/drivers/net/wireless/realtek/rtl8821cu
-```
-Make sure `8821cu.ko` file present on that directory
-
-### Check with **DKMS** (if installing via **DKMS**):
-
-``
-sudo dkms status
-``
-### ARM architecture tweak for this driver (this solves compilation problem of this driver):
-```
-# For AArch32
-sudo cp /lib/modules/$(uname -r)/build/arch/arm/Makefile /lib/modules/$(uname -r)/build/arch/arm/Makefile.$(date +%Y%m%d%H%M)
-sudo sed -i 's/-msoft-float//' /lib/modules/$(uname -r)/build/arch/arm/Makefile
-sudo ln -s /lib/modules/$(uname -r)/build/arch/arm /lib/modules/$(uname -r)/build/arch/armv7l
-
-# For AArch64
-sudo cp /lib/modules/$(uname -r)/build/arch/arm64/Makefile /lib/modules/$(uname -r)/build/arch/arm64/Makefile.$(date +%Y%m%d%H%M)
-sudo sed -i 's/-mgeneral-regs-only//' /lib/modules/$(uname -r)/build/arch/arm64/Makefile
-
-```
-### Monitor mode
-Use the tool 'iw', please don't use other tools like 'airmon-ng'
-```
-iw dev wlan0 set monitor none
-```
-
+在Gnome的无线网络设置页面中，如果你先前也有内置的PCI无线装置，那么Gnome一般不会默认显示你的USB网络设置，它会在设置窗口上方显示为`Realtek 无线网络`。
